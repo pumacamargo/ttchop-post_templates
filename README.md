@@ -109,7 +109,7 @@ echo -n "異なる場合があります。仕様は商品説明をご確認く�
 - Texto siempre en inglés (sin importar si el video es JP o MX).
 
 ```bash
-python3 /root/ttchop-server/scripts/thumbnail_maker.py \
+python3 /root/projects/ttchop/ttchop-server/scripts/thumbnail_maker.py \
   "<collage_url>" "Product Name in English" /tmp/thumb.jpg
 ```
 
