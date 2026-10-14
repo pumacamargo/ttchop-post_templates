@@ -13,6 +13,7 @@
   "dependencies": {
     "@remotion/cli": "^4.0.488",
     "@remotion/effects": "^4.0.488",
+    "@remotion/google-fonts": "^4.0.488",
     "@remotion/media": "^4.0.488",
     "@remotion/renderer": "^4.0.488",
     "@rive-app/canvas": "^2.43.0",

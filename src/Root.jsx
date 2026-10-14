@@ -21,10 +21,27 @@ import { ReviewCardOverlay } from './ReviewCardOverlay';
 import { AutoOverlay } from './AutoOverlay';
 import { FontStyleDemo } from './FontStyleDemo';
 import { TextAnimDemo, GlowCompareDemo } from './TextAnimDemo';
+import { CarouselSlide } from './CarouselSlide';
 
 export const RemotionRoot = () => {
   return (
     <>
+      <Composition
+        id="CarouselSlide"
+        component={CarouselSlide}
+        durationInFrames={1}
+        fps={30}
+        width={1080}
+        height={1920}
+        defaultProps={{
+          bg: 'placeholder.jpg',
+          text: 'Sample slide text',
+          role: 'hook',
+          slideIndex: 0,
+          total: 7,
+          style: { layoutId: 'cinematic-concert-still' },
+        }}
+      />
       <Composition
         id="overlay-sampler"
         component={OverlaySamplerOverlay}
