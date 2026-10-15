@@ -1,5 +1,6 @@
-import React from 'react';
-import { AbsoluteFill, Img, staticFile } from 'remotion';
+import React, { useLayoutEffect, useRef } from 'react';
+import { AbsoluteFill, Img, staticFile, delayRender, continueRender, cancelRender } from 'remotion';
+import { resolveSafeArea, positionInSafeArea, fitFontSize } from './carouselSafeArea.cjs';
 import { loadFont as loadBebasNeue, fontFamily as bebasNeueFamily } from '@remotion/google-fonts/BebasNeue';
 import { loadFont as loadPlayfairDisplay, fontFamily as playfairDisplayFamily } from '@remotion/google-fonts/PlayfairDisplay';
 
@@ -48,33 +49,22 @@ export const LAYOUT_IDS = Object.keys(LAYOUTS);
 
 const ROLE_SIZE_SCALE = { hook: 1.25, cta: 1.1, body: 1 };
 
-// 'gradient' es una franja independiente detrás de TODO el bloque de texto (no solo
-// su altura exacta), para que el degradado se vea bien sin importar cuántas líneas
-// ocupe el texto. 'band'/'blur' en cambio envuelven solo la caja de texto — ver
-// textBoxStyleFor, que es lo que se le aplica al <div> de contenido, no al frame.
-function gradientOverlayStyle(textPosition) {
+// La franja visual acompaña la columna segura; no invade controles ni caption.
+function gradientOverlayStyle(area) {
   return {
     position: 'absolute',
-    left: 0,
-    right: 0,
-    ...(textPosition === 'top' ? { top: 0, height: '42%' } : { bottom: 0, height: '48%' }),
-    background:
-      textPosition === 'top'
-        ? 'linear-gradient(to bottom, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0) 100%)'
-        : 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 100%)',
+    left: area.x - 20,
+    top: area.y - 40,
+    width: area.width + 40,
+    height: area.height + 80,
+    background: 'radial-gradient(ellipse at center, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.53) 62%, rgba(0,0,0,0) 100%)',
   };
 }
 
 function textBoxStyleFor(background) {
-  if (background === 'blur') return { backdropFilter: 'blur(14px)', background: 'rgba(0,0,0,0.35)', padding: '40px 56px', borderRadius: 12 };
-  if (background === 'band') return { background: 'rgba(250, 247, 240, 0.92)', padding: '40px 56px', borderRadius: 4 };
+  if (background === 'blur') return { backdropFilter: 'blur(14px)', background: 'rgba(0,0,0,0.35)', padding: '24px', borderRadius: 12 };
+  if (background === 'band') return { background: 'rgba(250, 247, 240, 0.92)', padding: '24px', borderRadius: 4 };
   return {};
-}
-
-function positionStyleFor(textPosition) {
-  if (textPosition === 'top') return { top: 0, justifyContent: 'flex-start', paddingTop: 140 };
-  if (textPosition === 'center') return { top: 0, height: '100%', justifyContent: 'center' };
-  return { bottom: 0, justifyContent: 'flex-end', paddingBottom: 140 }; // default 'bottom'
 }
 
 // Still 1080x1920 (9:16, D6). `bg` es un nombre de archivo YA descargado a public/
@@ -92,8 +82,37 @@ export const CarouselSlide = ({ bg, text = '', role = 'body', slideIndex = 0, to
   const background = typography.background || layout.defaultBackground;
   const textPosition = typography.textPosition || layout.defaultTextPosition;
   const tracking = typography.tracking ?? layout.defaultTracking;
-  const sizeScale = (typography.sizeScale || 1) * (ROLE_SIZE_SCALE[role] || 1);
-  const baseFontSize = Math.round(64 * sizeScale);
+  const area = resolveSafeArea(style);
+  const boxRef = useRef(null);
+  const textRef = useRef(null);
+
+  // Medir con Chrome y las fuentes ya cargadas, no estimar caracteres CJK.
+  // Remotion no captura el PNG hasta que la caja real cabe en el área segura.
+  useLayoutEffect(() => {
+    const handle = delayRender('Fitting carousel text');
+    let active = true;
+    document.fonts.ready.then(() => {
+      if (!active) { continueRender(handle); return; }
+      const box = boxRef.current;
+      const textNode = textRef.current;
+      fitFontSize((size) => {
+        textNode.style.fontSize = `${size}px`;
+        return {
+          width: Math.max(box.scrollWidth, textNode.scrollWidth + (background === 'band' || background === 'blur' ? 48 : 0)),
+          height: box.scrollHeight,
+        };
+      }, area, 64 * (typography.sizeScale || 1) * (ROLE_SIZE_SCALE[role] || 1));
+      box.dataset.fittedFontSize = textNode.style.fontSize;
+      const rect = box.getBoundingClientRect();
+      if (rect.left < area.x - 1 || rect.right > area.x + area.width + 1 ||
+          rect.top < area.y - 1 || rect.bottom > area.y + area.height + 1 ||
+          textNode.scrollWidth > textNode.clientWidth + 1) {
+        throw new Error('carousel text box exceeds provisional safeArea');
+      }
+      continueRender(handle);
+    }).catch((error) => cancelRender(error));
+    return () => { active = false; };
+  }, [text, role, fontFamily, weight, textCase, tracking, background, typography.sizeScale, area.x, area.y, area.width, area.height]);
 
   return (
     <AbsoluteFill style={{ backgroundColor: '#111' }}>
@@ -101,14 +120,14 @@ export const CarouselSlide = ({ bg, text = '', role = 'body', slideIndex = 0, to
         <Img src={staticFile(bg)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
       </AbsoluteFill>
 
-      {background === 'gradient' && <div style={gradientOverlayStyle(textPosition)} />}
+      {background === 'gradient' && <div style={gradientOverlayStyle(area)} />}
 
-      {/* Numeración n/N opcional (plan §8.3) — discreta, esquina superior derecha */}
+      {/* Numeración fuera de la columna y de los controles del lado derecho. */}
       <div
         style={{
           position: 'absolute',
-          top: 56,
-          right: 56,
+          top: 460,
+          left: area.x,
           color: 'rgba(255,255,255,0.85)',
           fontFamily: CJK_SANS,
           fontSize: 32,
@@ -119,36 +138,48 @@ export const CarouselSlide = ({ bg, text = '', role = 'body', slideIndex = 0, to
         {slideIndex + 1}/{total}
       </div>
 
-      <AbsoluteFill
+      <div
+        data-testid="carousel-safe-area"
         style={{
+          position: 'absolute',
+          left: area.x,
+          top: area.y,
+          width: area.width,
+          height: area.height,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          padding: '0 80px',
-          ...positionStyleFor(textPosition),
+          justifyContent: positionInSafeArea(textPosition),
         }}
       >
         <div
+          ref={boxRef}
+          data-testid="carousel-text-box"
           style={{
+            boxSizing: 'border-box',
+            flexShrink: 0,
+            width: '100%',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            maxWidth: '100%',
             ...textBoxStyleFor(background),
           }}
         >
           <div
+            ref={textRef}
+            data-testid="carousel-text"
             style={{
               fontFamily,
               fontWeight: weight,
               textTransform: textCase === 'uppercase' ? 'uppercase' : 'none',
               color,
-              fontSize: baseFontSize,
+              fontSize: 64,
               lineHeight: 1.25,
               letterSpacing: tracking,
               textAlign: 'center',
               textWrap: 'balance',
-              maxWidth: '100%',
+              width: '100%',
+              overflowWrap: 'anywhere',
               whiteSpace: 'pre-wrap',
               textShadow: background === 'none' ? '0 2px 16px rgba(0,0,0,0.7)' : 'none',
             }}
@@ -167,7 +198,7 @@ export const CarouselSlide = ({ bg, text = '', role = 'body', slideIndex = 0, to
             />
           )}
         </div>
-      </AbsoluteFill>
+      </div>
     </AbsoluteFill>
   );
 };
