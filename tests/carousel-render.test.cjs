@@ -13,6 +13,8 @@ const outputDir = path.join(process.env.TMPDIR || '/root/carousel-ttc58-previews
 // Render en Chromium real: el componente cancela el render si su caja medida
 // excede la zona segura; así se prueban glifos CJK, wrapping y fuentes reales.
 test('both layouts render CJK hooks and long text without leaving the safe area', { timeout: 180000 }, async () => {
+  const publicDirExisted = fs.existsSync(path.dirname(png));
+  fs.mkdirSync(path.dirname(png), { recursive: true });
   fs.mkdirSync(outputDir, { recursive: true });
   fs.writeFileSync(png, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL/nwAAAABJRU5ErkJggg==', 'base64'));
   try {
@@ -34,6 +36,7 @@ test('both layouts render CJK hooks and long text without leaving the safe area'
     }
   } finally {
     fs.rmSync(png, { force: true });
+    if (!publicDirExisted) fs.rmdirSync(path.dirname(png));
     fs.rmSync(outputDir, { recursive: true, force: true });
   }
 });
