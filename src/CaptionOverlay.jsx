@@ -89,11 +89,20 @@ const fadeOpacity = (frame, startF, endF, fadeFrames) => {
   return Math.min(fadeIn, fadeOut);
 };
 
-// ─── Caption — a white rounded "sticker" with dark bold text ────────────────
+// ─── Caption — a white rounded "sticker" with dark text (natural weight) ─────
 const Caption = ({ c, pill, frame, fps, fadeFrames }) => {
   const win = windowFor(frame, c.start, c.end, fps);
   if (!win) return null;
-  const { fontSize, padX, padY, radiusRatio, centerY, fg, bg } = pill;
+  const {
+    fontSize,
+    padX,
+    padY,
+    radiusRatio,
+    centerY,
+    fg,
+    bg,
+    fontWeight = 400, // natural weight of KeinannMaruPOPjp (Regular only)
+  } = pill;
 
   const boxW = measureTextWidth(c.text, fontSize) + 2 * padX;
   const lineH = fontSize; // alto de línea
@@ -122,7 +131,7 @@ const Caption = ({ c, pill, frame, fps, fadeFrames }) => {
         style={{
           color: fg,
           fontFamily: DEFAULT_FONT,
-          fontWeight: 700,
+          fontWeight,
           fontSize,
           lineHeight: `${lineH}px`,
           whiteSpace: 'nowrap',
@@ -134,11 +143,12 @@ const Caption = ({ c, pill, frame, fps, fadeFrames }) => {
   );
 };
 
-// ─── Tag — 2 lines of white bold text with a dark outline, top-left at (x,y) ─
+// ─── Tag — 2 lines of white text (natural weight) with a dark outline ───────
 const Tag = ({ tag, frame, fps, fadeFrames }) => {
   const win = windowFor(frame, tag.start, tag.end, fps);
   if (!win) return null;
   const { fontSize, lines, lineH } = tagMetrics(tag);
+  const fontWeight = tag.fontWeight ?? 400; // natural weight of KeinannMaruPOPjp
   const opacity = fadeOpacity(frame, win.startF, win.endF, fadeFrames);
   return (
     <div style={{ position: 'absolute', left: tag.x, top: tag.y, opacity }}>
@@ -148,7 +158,7 @@ const Tag = ({ tag, frame, fps, fadeFrames }) => {
           style={{
             color: '#ffffff',
             fontFamily: DEFAULT_FONT,
-            fontWeight: 700,
+            fontWeight,
             fontSize,
             lineHeight: `${lineH}px`,
             textShadow: makeCircularShadow(6, '#000000', 24),
@@ -243,6 +253,7 @@ export const CaptionOverlay = ({
   videoSrc = 'squishy01_base.mp4',
   captions = [],
   pill = {
+    fontWeight: 400,
     fontSize: 48,
     padX: 26,
     padY: 16,
