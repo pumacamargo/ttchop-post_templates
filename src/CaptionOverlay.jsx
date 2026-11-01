@@ -249,6 +249,82 @@ const Disc = ({ disc, frame, fps, fadeFrames }) => {
   );
 };
 
+// ─── EndCard — thumbnail/cover frame ─────────────────────────────────────────
+// Shown ONLY on the last `frames` frames of the composition (default 1). Painted
+// on top of everything else as an additive stack (bottom → top): full-bleed
+// image, translucent dark scrim, then white text with a dark outline (same
+// typography and outline criteria as Tag). The base video — and therefore its
+// audio track — stays mounted underneath; nothing here replaces or mutates it.
+const EndCard = ({ endCard, frame, durationInFrames }) => {
+  const frames = Math.max(1, Math.round(endCard.frames ?? 1));
+  if (frame < durationInFrames - frames) return null;
+
+  const image = endCard.image;
+  const scrim = endCard.scrim ?? {};
+  const scrimColor = scrim.color ?? '#000000';
+  const scrimOpacity = scrim.opacity ?? 0.35;
+
+  const t = endCard.text ?? {};
+  const lines = t.lines ?? [];
+  const fontSize = t.fontSize ?? 80;
+  const lineHeightRatio = t.lineHeight ?? 1.05;
+  const color = t.color ?? '#ffffff';
+  const outlineColor = t.outlineColor ?? '#141414';
+  const outlineWidth = t.outlineWidth ?? 6;
+  const centerY = t.centerY ?? 700;
+  const fontWeight = t.fontWeight ?? 400; // natural weight of KeinannMaruPOPjp
+
+  const lineH = Math.round(fontSize * lineHeightRatio);
+  const blockH = lines.length * lineH;
+
+  return (
+    <>
+      {/* 1. Full-bleed image */}
+      {image ? (
+        <AbsoluteFill>
+          <img
+            src={staticFile(image)}
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          />
+        </AbsoluteFill>
+      ) : null}
+
+      {/* 2. Translucent dark scrim */}
+      <AbsoluteFill style={{ backgroundColor: scrimColor, opacity: scrimOpacity }} />
+
+      {/* 3. Text — horizontally centered, block centered on centerY */}
+      {lines.length ? (
+        <div
+          style={{
+            position: 'absolute',
+            left: 0,
+            top: centerY - blockH / 2,
+            width: FRAME_W,
+            textAlign: 'center',
+          }}
+        >
+          {lines.map((line, i) => (
+            <div
+              key={i}
+              style={{
+                color,
+                fontFamily: DEFAULT_FONT,
+                fontWeight,
+                fontSize,
+                lineHeight: `${lineH}px`,
+                textShadow: makeCircularShadow(outlineWidth, outlineColor, 24),
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {line}
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </>
+  );
+};
+
 export const CaptionOverlay = ({
   videoSrc = 'squishy01_base.mp4',
   captions = [],
@@ -265,9 +341,10 @@ export const CaptionOverlay = ({
   tag = null,
   arrow = null,
   disc = null,
+  endCard = null,
 }) => {
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const { fps, durationInFrames } = useVideoConfig();
   const fadeFrames = Math.round((FADE_MS / 1000) * fps);
 
   return (
@@ -289,6 +366,11 @@ export const CaptionOverlay = ({
         <Arrow arrow={arrow} tag={tag} frame={frame} fps={fps} fadeFrames={fadeFrames} />
       ) : null}
       {disc ? <Disc disc={disc} frame={frame} fps={fps} fadeFrames={fadeFrames} /> : null}
+
+      {/* Cover/thumbnail frame — drawn on top, only on the final `frames` frames */}
+      {endCard ? (
+        <EndCard endCard={endCard} frame={frame} durationInFrames={durationInFrames} />
+      ) : null}
     </AbsoluteFill>
   );
 };
