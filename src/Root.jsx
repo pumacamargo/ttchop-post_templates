@@ -22,6 +22,7 @@ import { AutoOverlay } from './AutoOverlay';
 import { FontStyleDemo } from './FontStyleDemo';
 import { TextAnimDemo, GlowCompareDemo } from './TextAnimDemo';
 import { CarouselSlide } from './CarouselSlide';
+import { CaptionOverlay } from './CaptionOverlay';
 
 export const RemotionRoot = () => {
   return (
@@ -165,6 +166,14 @@ export const RemotionRoot = () => {
           bodyCues: [],
           blinkTimes: [],
         }}
+      />
+      <Composition
+        id="caption-overlay"
+        component={CaptionOverlay}
+        width={1080}
+        height={1920}
+        fps={30}
+        durationInFrames={834}
       />
       <Composition id="AatoOnVideo" component={AatoOnVideo} durationInFrames={1234} fps={60} width={1080} height={1920} />
       <Composition
