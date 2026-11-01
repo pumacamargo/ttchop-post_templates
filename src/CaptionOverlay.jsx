@@ -41,6 +41,21 @@ const measureTextWidth = (text, fontSize) => {
   return em * fontSize;
 };
 
+// Tag geometry — the exact box the Tag component paints (same width/line-height
+// criteria), so the arrow can be anchored to the text block by construction.
+// Returns width (max line width), height (all lines), line height and fontSize.
+const TAG_LINE_HEIGHT_RATIO = 1.25;
+const tagMetrics = (tag) => {
+  const fontSize = tag.fontSize ?? 38;
+  const lines = tag.lines ?? [];
+  const lineH = Math.round(fontSize * TAG_LINE_HEIGHT_RATIO);
+  const width = lines.reduce(
+    (max, line) => Math.max(max, measureTextWidth(line, fontSize)),
+    0
+  );
+  return { fontSize, lines, lineH, width, height: lines.length * lineH };
+};
+
 // Circular text shadow → clean bold dark outline (no gaps, no bumps).
 const makeCircularShadow = (radius, color, steps = 24) => {
   const s = [];
@@ -123,11 +138,11 @@ const Caption = ({ c, pill, frame, fps, fadeFrames }) => {
 const Tag = ({ tag, frame, fps, fadeFrames }) => {
   const win = windowFor(frame, tag.start, tag.end, fps);
   if (!win) return null;
-  const fontSize = tag.fontSize ?? 38;
+  const { fontSize, lines, lineH } = tagMetrics(tag);
   const opacity = fadeOpacity(frame, win.startF, win.endF, fadeFrames);
   return (
     <div style={{ position: 'absolute', left: tag.x, top: tag.y, opacity }}>
-      {(tag.lines ?? []).map((line, i) => (
+      {lines.map((line, i) => (
         <div
           key={i}
           style={{
@@ -135,7 +150,7 @@ const Tag = ({ tag, frame, fps, fadeFrames }) => {
             fontFamily: DEFAULT_FONT,
             fontWeight: 700,
             fontSize,
-            lineHeight: `${Math.round(fontSize * 1.25)}px`,
+            lineHeight: `${lineH}px`,
             textShadow: makeCircularShadow(6, '#000000', 24),
             whiteSpace: 'nowrap',
           }}
@@ -147,19 +162,43 @@ const Tag = ({ tag, frame, fps, fadeFrames }) => {
   );
 };
 
-// ─── Arrow — thick red downward arrow with a white outline, top-left at (x,y) ─
+// ─── Arrow — thick red downward arrow with a white outline ───────────────────
+// When a `tag` is provided the arrow is anchored to the tag *by construction*:
+// its horizontal center matches the tag text block center, and its top edge sits
+// `gap` px (default 18, i.e. 15–20) below the tag text bottom. This recomputes
+// automatically whenever tag.x / tag.y / tag.fontSize / tag.lines change.
+// Optional arrow.dx / arrow.dy nudge the anchored position; without a tag, the
+// legacy arrow.x / arrow.y top-left is used as-is.
 const ARROW_W = 140;
 const ARROW_H = 180;
-const Arrow = ({ arrow, frame, fps, fadeFrames }) => {
+const ARROW_GAP_DEFAULT = 18;
+
+const Arrow = ({ arrow, tag, frame, fps, fadeFrames }) => {
   const win = windowFor(frame, arrow.start, arrow.end, fps);
   if (!win) return null;
   const opacity = fadeOpacity(frame, win.startF, win.endF, fadeFrames);
+
+  let left;
+  let top;
+  if (tag) {
+    const { width, height } = tagMetrics(tag);
+    const gap = arrow.gap ?? ARROW_GAP_DEFAULT;
+    const dx = arrow.dx ?? 0;
+    const dy = arrow.dy ?? 0;
+    const centerX = tag.x + width / 2; // text block horizontal center
+    left = centerX - ARROW_W / 2 + dx;
+    top = tag.y + height + gap + dy; // just below the text block bottom
+  } else {
+    left = arrow.x ?? 0;
+    top = arrow.y ?? 0;
+  }
+
   return (
     <svg
       width={ARROW_W}
       height={ARROW_H}
       viewBox="0 0 140 180"
-      style={{ position: 'absolute', left: arrow.x, top: arrow.y, opacity }}
+      style={{ position: 'absolute', left, top, opacity }}
     >
       <polygon
         points="48,4 92,4 92,104 130,104 70,172 10,104 48,104"
@@ -235,7 +274,9 @@ export const CaptionOverlay = ({
       ))}
 
       {tag ? <Tag tag={tag} frame={frame} fps={fps} fadeFrames={fadeFrames} /> : null}
-      {arrow ? <Arrow arrow={arrow} frame={frame} fps={fps} fadeFrames={fadeFrames} /> : null}
+      {arrow ? (
+        <Arrow arrow={arrow} tag={tag} frame={frame} fps={fps} fadeFrames={fadeFrames} />
+      ) : null}
       {disc ? <Disc disc={disc} frame={frame} fps={fps} fadeFrames={fadeFrames} /> : null}
     </AbsoluteFill>
   );
