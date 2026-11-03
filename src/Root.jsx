@@ -173,7 +173,21 @@ export const RemotionRoot = () => {
         width={1080}
         height={1920}
         fps={30}
-        durationInFrames={834}
+        calculateMetadata={({ props }) => {
+          const ends = [
+            ...(props.captions ?? []).map((c) => c.end),
+            props.tag?.end,
+            props.arrow?.end,
+            props.disc?.end,
+          ].filter((v) => typeof v === "number");
+          const durationSeconds =
+            typeof props.duration === "number"
+              ? props.duration
+              : ends.length > 0
+                ? Math.max(...ends)
+                : 30;
+          return { durationInFrames: Math.max(1, Math.round(durationSeconds * 30)) };
+        }}
       />
       <Composition id="AatoOnVideo" component={AatoOnVideo} durationInFrames={1234} fps={60} width={1080} height={1920} />
       <Composition
